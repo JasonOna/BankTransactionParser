@@ -30,7 +30,9 @@ export function loadConfig(): Config {
     },
     bankCsvPath: process.env.BANK_CSV_PATH!,
     creditCardCsvPath: process.env.CREDIT_CARD_CSV_PATH!,
+    creditCardStartingBalance: process.env.CREDIT_CARD_STARTING_BALANCE || '0',
     logLevel: process.env.LOG_LEVEL || 'info',
     daysBack: process.env.DAYS_BACK ? parseInt(process.env.DAYS_BACK, 10) : undefined,
+    liveRun: process.env.LIVE_RUN === 'runme'
   };
 }

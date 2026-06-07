@@ -21,6 +21,10 @@ export class BankAdapter {
    * Parse bank CSV file
    */
   async parse(filePath: string, daysBack?: number): Promise<NormalizedTransaction[]> {
+    if (this.accountId !== '') {
+       console.log('skipping bank')
+       return [];
+    }
     if (!fs.existsSync(filePath)) {
       this.logger.warn(`Bank CSV file not found: ${filePath}`);
       return [];
@@ -72,16 +76,18 @@ export class BankAdapter {
    */
   private transformRow(row: BankCsvRow): NormalizedTransaction {
     const date = parseDate(row.Date);
-    const payee = sanitizePayee(row.Description);
+    const merchant = sanitizePayee(row.Description);
     const amount = row.Debit ?  -parseAmount(row.Debit) :  parseAmount(row.Credit);
 
     const transaction: NormalizedTransaction = {
       date,
-      payee,
+      merchant,
+      payee: merchant,
       amount,
       memo: sanitizeMemo(row.Description),
       accountId: this.accountId,
       source: 'bank',
+      uniquenessKey: row.Balance,
       importId: '', // Will be set below
     };
 

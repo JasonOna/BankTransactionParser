@@ -42,7 +42,7 @@ export function parseAmount(amountStr: string): number {
   if (isNaN(amount)) {
     throw new Error(`Invalid amount format: ${amountStr}`);
   }
-  return Math.abs(amount); // Always return positive
+  return Math.round(Math.abs(amount) * 100) / 100;// Always return positive
 }
 
 /**
@@ -59,11 +59,23 @@ export function isWithinLookback(date: Date, daysBack?: number): boolean {
 }
 
 /**
+ * Normalize merchant text for matching and alias lookups
+ */
+export function normalizeLookupText(text: string): string {
+  return text
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
  * Generate deterministic import ID for idempotency
  * Hash of date + amount + payee ensures same transaction = same ID
  */
 export function generateImportId(transaction: Partial<NormalizedTransaction>): string {
-  const key = `${transaction.date}|${transaction.amount}|${transaction.payee}|${transaction.uniquenessKey}`;
+  const key = `${transaction.date}|${transaction.amount}|${transaction.merchant ?? transaction.payee}|${transaction.uniquenessKey}`;
   return crypto.createHash('sha256').update(key).digest('hex').substring(0, 16);
 }
 

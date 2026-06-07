@@ -1,5 +1,7 @@
 import { BankAdapter } from '../adapters/bankAdapter';
 import { CreditCardAdapter } from '../adapters/creditCardAdapter';
+import { PayeeAliasStore } from '../services/payeeAliasStore';
+import { PayeeMatcher } from '../services/payeeMatcher';
 import { YnabService } from '../services/ynabService';
 import { Config, SyncReport } from '../types';
 import { getLogger } from '../utils/logger';
@@ -16,14 +18,16 @@ export class SyncEngine {
   private bankAdapter: BankAdapter;
   private creditCardAdapter: CreditCardAdapter;
   private ynabService: YnabService;
+  private payeeAliasStore: PayeeAliasStore;
   private config: Config;
   private logger = getLogger();
 
   constructor(config: Config) {
     this.config = config;
-    this.bankAdapter = new BankAdapter(config.accountMappings.checking);
-    this.creditCardAdapter = new CreditCardAdapter(config.accountMappings.credit_card);
-    this.ynabService = new YnabService(config.ynabApiKey, config.ynabBudgetId);
+    this.bankAdapter = new BankAdapter(config.accountMappings.savings);
+    this.creditCardAdapter = new CreditCardAdapter(config.accountMappings.credit_card, config.creditCardStartingBalance);
+    this.ynabService = new YnabService(config.ynabApiKey, config.ynabBudgetId, this.config.liveRun);
+    this.payeeAliasStore = new PayeeAliasStore();
   }
 
   /**
@@ -66,8 +70,21 @@ export class SyncEngine {
         'Deduplicated transactions'
       );
 
+      const ynabPayees = await this.ynabService.getPayees();
+      this.payeeAliasStore.load();
+      const matcher = new PayeeMatcher({
+        payees: ynabPayees,
+        aliasStore: this.payeeAliasStore,
+      });
+
+      const resolution = await matcher.resolveTransactions(uniqueTransactions);
+      this.logger.info(
+        { reviewedMerchants: resolution.reviewedMerchants },
+        'Validated payee mappings'
+      );
+
       // Import to YNAB
-      const report = await this.ynabService.importTransactions(uniqueTransactions);
+      const report = await this.ynabService.importTransactions(resolution.transactions);
       this.logger.info(report, 'Sync complete');
 
       return report;
@@ -81,8 +98,8 @@ export class SyncEngine {
   }
 
   /**
-   * Deduplicate transactions by import_id
-   * Keeps only the first occurrence of each import_id
+   * Deduplicate transactions by importId
+   * Keeps only the first occurrence of each importId
    */
   private deduplicateTransactions(transactions: any[]) {
     const seen = new Set<string>();
