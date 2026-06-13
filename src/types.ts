@@ -84,6 +84,11 @@ export interface YnabPayee {
   transfer_account_id?: string | null;
 }
 
+export interface YnabCategory {
+  id: string;
+  name: string;
+}
+
 export interface PayeeAliasData {
   merchantAliases: Record<string, string>;
   keywordAliases: Record<string, string>;

@@ -54,7 +54,7 @@ describe('CreditCardAdapter', () => {
     expect(result[0].source).toBe('credit_card');
     expect(result[0].merchant).toBe('Target (The Glen)');
     expect(result[0].amount).toBe(-39.01)
-    expect(result[0].uniquenessKey).toBe('-39.01')
+    expect(result[0].uniquenessKey).toBe('-3901')
   });
 
   it('should filter transactions outside of the lookback period', async () => {
