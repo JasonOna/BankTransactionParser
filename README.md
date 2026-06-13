@@ -182,7 +182,7 @@ LOG_LEVEL=error   # Only errors
 - Verify `import_id` generation hasn't changed
 - Check transaction amounts match exactly (amount is part of hash)
 
-## Running as a Scheduled Job
+## Running as a Scheduled Job, WIP
 
 Use `cron` (macOS/Linux) or Task Scheduler (Windows):
 
@@ -197,4 +197,3 @@ Use `cron` (macOS/Linux) or Task Scheduler (Windows):
 - [ ] Set up scheduled imports (cron/Task Scheduler)
 - [ ] Add category auto-mapping based on payee
 - [ ] Integrate with bank's native API (if available)
-- [ ] Add transaction matching/linking to existing YNAB entries

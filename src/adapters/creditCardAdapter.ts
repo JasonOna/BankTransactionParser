@@ -12,9 +12,11 @@ import { getLogger } from '../utils/logger';
 export class CreditCardAdapter {
   private logger = getLogger();
   private accountId: string;
+  private startingBalance: string;
 
-  constructor(accountId: string) {
+  constructor(accountId: string, startingBalance: string) {
     this.accountId = accountId;
+    this.startingBalance = startingBalance;
   }
 
   /**
@@ -34,7 +36,14 @@ export class CreditCardAdapter {
         trim: true,
       });
 
+      // add running balances
       const transactions: NormalizedTransaction[] = [];
+      let runningBalance = this.stringToNumber(this.startingBalance) * 100;
+      for (const row of rows) {
+        const amount = this.stringToNumber(row.Amount)
+        runningBalance = Math.round(runningBalance + amount * 100)
+        row['Running Balance'] = runningBalance
+      }
 
       for (const row of rows) {
         try {
@@ -71,13 +80,16 @@ export class CreditCardAdapter {
    */
   private transformRow(row: CreditCardCsvRow): NormalizedTransaction {
     const date = parseDate(row.Date);
-    const payee = sanitizePayee(row['Merchant Name']);
-    const amount = parseAmount(row.Amount);
+    const merchant = sanitizePayee(row['Merchant Name']);
+    const amount = this.stringToNumber(row.Amount)
     const details = row['Transaction Details'];
+    const runningBalance = row['Running Balance'];
 
     const transaction: NormalizedTransaction = {
       date,
-      payee,
+      merchant,
+      payee: merchant,
+      uniquenessKey: runningBalance.toString(),
       amount,
       accountId: this.accountId,
       memo: sanitizeMemo(details),
@@ -87,5 +99,9 @@ export class CreditCardAdapter {
 
     transaction.importId = generateImportId(transaction);
     return transaction;
+  }
+
+  private stringToNumber(input: string): number {
+    return input[0] === '-' ? -parseAmount(input) : parseAmount(input);
   }
 }

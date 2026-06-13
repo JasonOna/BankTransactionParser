@@ -1,5 +1,5 @@
 import axios, { AxiosInstance } from 'axios';
-import { NormalizedTransaction, SyncReport } from '../types';
+import { NormalizedTransaction, SyncReport, YnabPayee } from '../types';
 import { getLogger } from '../utils/logger';
 
 /**
@@ -11,10 +11,11 @@ import { getLogger } from '../utils/logger';
 export class YnabService {
   private client: AxiosInstance;
   private budgetId: string;
+  private liveRun?: boolean;
   private logger = getLogger();
   private baseUrl = 'https://api.youneedabudget.com/v1';
 
-  constructor(apiKey: string, budgetId: string) {
+  constructor(apiKey: string, budgetId: string, liveRun?: boolean) {
     this.budgetId = budgetId;
     this.client = axios.create({
       baseURL: this.baseUrl,
@@ -24,6 +25,15 @@ export class YnabService {
       },
       timeout: 10000,
     });
+    this.liveRun = liveRun
+  }
+
+  /**
+   * Load the payees currently available in the YNAB budget
+   */
+  async getPayees(): Promise<YnabPayee[]> {
+    const response = await this.client.get(`/budgets/${this.budgetId}/payees`);
+    return response.data.data.payees ?? [];
   }
 
   /**
@@ -58,12 +68,22 @@ export class YnabService {
     }));
 
     try {
-      const response = await this.client.post(
-        `/budgets/${this.budgetId}/transactions`,
-        { transactions: ynabTransactions }
-      );
+      let responseData;
+      if (this.liveRun) {
+        const response = await this.client.post(
+          `/budgets/${this.budgetId}/transactions`,
+          { transactions: ynabTransactions }
+        );
+        responseData = response.data.data
+      } else {
+        console.log('*** dry run only sending empty results')
+        console.log('!!! here are the transactions ----', JSON.stringify(ynabTransactions))
+        responseData = {
+          transaction_ids: [],
+          duplicate_import_ids: []
+        }
+      }
 
-      const responseData = response.data.data;
       report.successful = responseData.transaction_ids?.length || 0;
       report.skipped = responseData.duplicate_import_ids?.length || 0;
 

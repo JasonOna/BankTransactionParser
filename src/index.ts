@@ -33,7 +33,7 @@ async function main() {
     if (report.errors.length > 0) {
       console.log('\nErrors:');
       report.errors.forEach(err => {
-        console.log(`  - ${err.transaction.payee} (${err.transaction.date}): ${err.error}`);
+        console.log(`  - ${err.transaction.payee} [${err.transaction.merchant}] (${err.transaction.date}): ${err.error}`);
       });
     }
 

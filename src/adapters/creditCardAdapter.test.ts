@@ -18,7 +18,7 @@ describe('CreditCardAdapter', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    adapter = new CreditCardAdapter(mockAccountId);
+    adapter = new CreditCardAdapter(mockAccountId, '0');
   });
 
   it('should return empty array if file does not exist', async () => {
@@ -34,18 +34,27 @@ describe('CreditCardAdapter', () => {
 
     const mockCsvContent = [
       'Date,Amount,Account Number,,Transaction Type,Transaction Details,Category,Merchant Name,Processed On',
-      '30 May 26,-39.00,Card ending 2352,,MISCELLANEOUS DEBIT,TARGET 5099 GLEN WAVERLEY,Other shopping,Target (The Glen),'
+      '30 May 26,-39.01,Card ending 2352,,MISCELLANEOUS DEBIT,TARGET 5099 GLEN WAVERLEY,Other shopping,Target (The Glen),'
     ].join('\n')
 
     vi.spyOn(fs, 'readFileSync').mockReturnValue(mockCsvContent);
 
     const result = await adapter.parse('fake-cc.csv');
 
+    const date = result[0].date
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const dd = String(date.getDate()).padStart(2, '0');
+
+    const yyyyMmDd = `${yyyy}-${mm}-${dd}`;
+
     expect(result).toHaveLength(1);
-    expect(result[0].date).toBeInstanceOf(Date);
+    expect(yyyyMmDd).toBe('2026-05-30')
     expect(result[0].accountId).toBe(mockAccountId);
     expect(result[0].source).toBe('credit_card');
-    expect(result[0].amount).toBeDefined();
+    expect(result[0].merchant).toBe('Target (The Glen)');
+    expect(result[0].amount).toBe(-39.01)
+    expect(result[0].uniquenessKey).toBe('-39.01')
   });
 
   it('should filter transactions outside of the lookback period', async () => {

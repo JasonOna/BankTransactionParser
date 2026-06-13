@@ -8,6 +8,7 @@
  */
 export interface NormalizedTransaction {
   date: Date;
+  merchant: string;
   payee: string;
   amount: number; // Always positive; sign indicates direction
   accountId: string;
@@ -26,6 +27,7 @@ export interface BankCsvRow {
   Description: string;
   Debit: string;
   Credit: string;
+  Balance: string;
 }
 
 /**
@@ -36,6 +38,7 @@ export interface CreditCardCsvRow {
   'Transaction Details': string;
   Amount: string;
   'Merchant Name': string;
+  'Running Balance': number;
 }
 
 /**
@@ -68,6 +71,26 @@ export interface Config {
   accountMappings: Record<string, string>; // account name -> YNAB account ID
   bankCsvPath: string;
   creditCardCsvPath: string;
+  creditCardStartingBalance: string;
   logLevel: string;
   daysBack?: number;
+  liveRun?: boolean;
+}
+
+export interface YnabPayee {
+  id: string;
+  name: string;
+  deleted?: boolean;
+  transfer_account_id?: string | null;
+}
+
+export interface PayeeAliasData {
+  merchantAliases: Record<string, string>;
+  keywordAliases: Record<string, string>;
+}
+
+export interface PayeeMatchResult {
+  merchant: string;
+  payee: string;
+  matchedBy: 'merchant_alias' | 'keyword_alias' | 'ynab_payee' | 'manual';
 }

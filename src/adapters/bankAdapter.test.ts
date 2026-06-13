@@ -41,6 +41,7 @@ describe('BankAdapter', () => {
     expect(result).toHaveLength(1);
     expect(result[0].accountId).toBe(mockAccountId);
     expect(result[0].source).toBe('bank');
+    expect(result[0].merchant).toBe('Eftpos Debit 30May10:24 Tally Ho Bakery \\Mount Waverley Au');
     expect(result[0].amount).toBeDefined();
     expect(result[0].date).toBeInstanceOf(Date);
   });
