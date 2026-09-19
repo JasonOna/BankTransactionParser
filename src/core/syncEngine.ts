@@ -2,6 +2,8 @@ import { BankAdapter } from '../adapters/bankAdapter';
 import { CreditCardAdapter } from '../adapters/creditCardAdapter';
 import { PayeeAliasStore } from '../services/payeeAliasStore';
 import { PayeeMatcher } from '../services/payeeMatcher';
+import { PayeeCategoryStore } from '../services/payeeCategoryStore';
+import { CategoryMatcher } from '../services/categoryMatcher';
 import { YnabService } from '../services/ynabService';
 import { Config, SyncReport } from '../types';
 import { getLogger } from '../utils/logger';
@@ -83,8 +85,21 @@ export class SyncEngine {
         'Validated payee mappings'
       );
 
+      // Resolve categories after payees have been assigned
+      const ynabCategories = await this.ynabService.getCategories();
+      const payeeCategoryStore = new PayeeCategoryStore();
+      payeeCategoryStore.load();
+
+      const categoryMatcher = new CategoryMatcher({
+        categories: ynabCategories,
+        store: payeeCategoryStore,
+      });
+
+      const categoryResolution = await categoryMatcher.resolveTransactions(resolution.transactions);
+      this.logger.info({ reviewedPayees: categoryResolution.reviewedPayees }, 'Resolved categories by payee');
+
       // Import to YNAB
-      const report = await this.ynabService.importTransactions(resolution.transactions);
+      const report = await this.ynabService.importTransactions(categoryResolution.transactions);
       this.logger.info(report, 'Sync complete');
 
       return report;

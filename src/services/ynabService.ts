@@ -29,6 +29,22 @@ export class YnabService {
   }
 
   /**
+   * Load the categories currently available in the YNAB budget
+   */
+  async getCategories(): Promise<Array<{ name: string; id: string }>> {
+    const response = await this.client.get(`/budgets/${this.budgetId}/categories`);
+    const groups = response.data.data.category_groups ?? [];
+
+    return groups
+      .flatMap((group: any) => group.categories ?? [])
+      .filter((category: any) => !category.deleted)
+      .map((category: any) => ({
+        name: category.name,
+        id: category.id,
+      }));
+  }
+
+  /**
    * Load the payees currently available in the YNAB budget
    */
   async getPayees(): Promise<YnabPayee[]> {

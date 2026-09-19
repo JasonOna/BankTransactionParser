@@ -21,10 +21,6 @@ export class BankAdapter {
    * Parse bank CSV file
    */
   async parse(filePath: string, daysBack?: number): Promise<NormalizedTransaction[]> {
-    if (this.accountId !== '') {
-       console.log('skipping bank')
-       return [];
-    }
     if (!fs.existsSync(filePath)) {
       this.logger.warn(`Bank CSV file not found: ${filePath}`);
       return [];
