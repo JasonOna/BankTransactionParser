@@ -7,10 +7,15 @@ Automated sync of bank and credit card transactions from CSV files to YNAB using
 This project demonstrates key software engineering principles for financial data syncing:
 
 - **Separation of Concerns**: Parse → Transform → API layers are independent
-- **Idempotency**: Uses SHA-256 hashed `import_id` to prevent duplicate transactions
+- **Idempotency**: Uses stable balance-aware SHA-256 identities and YNAB `import_id` protection
 - **Adapter Pattern**: Bank/credit card adapters normalize different CSV formats
 - **Configuration Management**: Environment-based config for easy deployment
 - **Error Handling**: Defensive parsing and detailed logging of failures
+
+## Documentation
+
+- [Project principles](docs/project-principles.md) - invariants for imports, money, privacy, and categorization
+- [Transaction idempotency design](docs/architecture/transaction-idempotency.md) - proposed identity and duplicate-handling architecture
 
 ## Quick Start
 
@@ -52,9 +57,9 @@ Example - if your bank uses `Debit/Credit` column instead of signed amounts:
 ```typescript
 private transformRow(row: BankCsvRow): NormalizedTransaction {
   // ... existing code ...
-  const amount = row.Type === 'debit' 
-    ? parseAmount(row.Amount)
-    : -parseAmount(row.Amount);
+  const amountMinor = row.Type === 'debit'
+    ? parseMinorUnits(row.Amount)
+    : -parseMinorUnits(row.Amount);
   // ... rest of code ...
 }
 ```
@@ -96,15 +101,15 @@ src/
 
 ### 2. Deduplication Phase
 
-- Transactions are deduplicated by `import_id`
-- `import_id` is a SHA-256 hash of (date + amount + payee)
-- Same transaction from multiple sources = same hash = kept once
+- Transactions use integer AUD cents internally
+- `import_id` hashes stable account, date, cents, payee, type, and available balance fields
+- Balance transitions distinguish legitimate repeated transactions
 
 ### 3. YNAB Import Phase
 
 - Transactions are sent to YNAB API with `import_id`
 - YNAB uses `import_id` for idempotency — running sync twice is safe
-- Duplicate transactions are silently ignored by YNAB
+- YNAB duplicate responses are reported as skipped, not newly created
 
 ### 4. Reporting Phase
 
@@ -116,9 +121,9 @@ src/
 
 This sync is **idempotent** — you can run it multiple times safely:
 
-1. **Deterministic import_id**: Hashing (date, amount, payee) ensures the same transaction always has the same ID
+1. **Deterministic import_id**: Stable normalized fields and available balance transitions preserve identity across repeated exports
 2. **YNAB's duplicate protection**: Transactions with duplicate import_id are skipped
-3. **Local deduplication**: If same CSV is processed twice, duplicates are removed before YNAB upload
+3. **Exact conversion**: Integer AUD cents are converted to YNAB milliunits by multiplying by 10
 
 ## Extending the System
 

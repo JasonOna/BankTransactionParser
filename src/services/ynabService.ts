@@ -76,7 +76,7 @@ export class YnabService {
       payee_name: txn.payee,
       memo: txn.memo,
       category_id: txn.categoryId ?? null,
-      amount: Math.round(txn.amount * 1000), // YNAB uses milliunits
+      amount: txn.amountMinor * 10, // Convert exact AUD cents to YNAB milliunits.
       import_id: txn.importId, // Critical for idempotency
       account_id: txn.accountId,
       cleared: 'uncleared' as const,
@@ -92,8 +92,7 @@ export class YnabService {
         );
         responseData = response.data.data
       } else {
-        console.log('*** dry run only sending empty results')
-        console.log('!!! here are the transactions ----', JSON.stringify(ynabTransactions))
+        this.logger.info({ count: ynabTransactions.length }, 'Dry run: transactions were not sent');
         responseData = {
           transaction_ids: [],
           duplicate_import_ids: []
@@ -117,7 +116,6 @@ export class YnabService {
         this.logger.error(
           {
             status: error.response?.status,
-            data: error.response?.data,
             message: error.message,
           },
           'YNAB API error'

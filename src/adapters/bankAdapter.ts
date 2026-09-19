@@ -1,7 +1,7 @@
 import fs from 'fs';
 import { parse } from 'csv-parse/sync';
 import { NormalizedTransaction, BankCsvRow } from '../types';
-import { parseDate, parseAmount, generateImportId, sanitizePayee, sanitizeMemo, isWithinLookback } from '../utils/utils';
+import { parseDate, parseMinorUnits, generateImportId, sanitizePayee, sanitizeMemo, isWithinLookback } from '../utils/utils';
 import { getLogger } from '../utils/logger';
 
 /**
@@ -37,9 +37,16 @@ export class BankAdapter {
 
       const transactions: NormalizedTransaction[] = [];
 
-      for (const row of rows) {
+      const chronologicalRows = [...rows].reverse();
+      let previousBalance: number | undefined;
+
+      for (const [index, row] of chronologicalRows.entries()) {
         try {
-          const transaction = this.transformRow(row);
+          const transaction = this.transformRow(row, rows.length - index);
+          if (previousBalance !== undefined && transaction.balanceBefore !== previousBalance) {
+            this.logger.warn({ rowNumber: transaction.sourceRowNumber }, 'Bank balance continuity warning');
+          }
+          previousBalance = transaction.balanceAfter;
 
           // Skip old transactions if lookback is specified
           if (!isWithinLookback(transaction.date, daysBack)) {
@@ -49,7 +56,7 @@ export class BankAdapter {
           transactions.push(transaction);
         } catch (error) {
           this.logger.warn(
-            { row, error },
+            { rowNumber: rows.indexOf(row) + 2, error: error instanceof Error ? error.message : 'invalid row' },
             'Failed to parse bank transaction row'
           );
         }
@@ -70,20 +77,25 @@ export class BankAdapter {
    * Transform a single bank CSV row to normalized format
    * Customize column names to match your bank's CSV headers
    */
-  private transformRow(row: BankCsvRow): NormalizedTransaction {
+  private transformRow(row: BankCsvRow, sourceRowNumber: number): NormalizedTransaction {
     const date = parseDate(row.Date);
     const merchant = sanitizePayee(row.Description);
-    const amount = row.Debit ?  -parseAmount(row.Debit) :  parseAmount(row.Credit);
+    const amountMinor = row.Debit ? -parseMinorUnits(row.Debit) : parseMinorUnits(row.Credit);
+    const balanceAfter = parseMinorUnits(row.Balance);
 
     const transaction: NormalizedTransaction = {
       date,
+      amountMinor,
       merchant,
       payee: merchant,
-      amount,
+      rawDescription: row.Description,
       memo: sanitizeMemo(row.Description),
       accountId: this.accountId,
+      sourceRowNumber,
+      balanceBefore: balanceAfter - amountMinor,
+      balanceAfter,
+      balanceSource: 'source',
       source: 'bank',
-      uniquenessKey: row.Balance,
       importId: '', // Will be set below
     };
 

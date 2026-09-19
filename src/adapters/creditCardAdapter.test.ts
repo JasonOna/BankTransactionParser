@@ -33,8 +33,10 @@ describe('CreditCardAdapter', () => {
     vi.spyOn(fs, 'existsSync').mockReturnValue(true);
 
     const mockCsvContent = [
+      '# opening_balance=1000.00',
+      '# opening_balance_date=2026-05-29',
       'Date,Amount,Account Number,,Transaction Type,Transaction Details,Category,Merchant Name,Processed On',
-      '30 May 26,-39.01,Card ending 2352,,MISCELLANEOUS DEBIT,TARGET 5099 GLEN WAVERLEY,Other shopping,Target (The Glen),'
+      '30 May 26,-39.01,Card ending 2352,,MISCELLANEOUS DEBIT,TARGET 5099 GLEN WAVERLEY,Other shopping,Target (The Glen),31 May 26'
     ].join('\n')
 
     vi.spyOn(fs, 'readFileSync').mockReturnValue(mockCsvContent);
@@ -53,13 +55,17 @@ describe('CreditCardAdapter', () => {
     expect(result[0].accountId).toBe(mockAccountId);
     expect(result[0].source).toBe('credit_card');
     expect(result[0].merchant).toBe('Target (The Glen)');
-    expect(result[0].amount).toBe(-39.01)
-    expect(result[0].uniquenessKey).toBe('-3901')
+    expect(result[0].amountMinor).toBe(-3901)
+    expect(result[0].balanceBefore).toBe(100000)
+    expect(result[0].balanceAfter).toBe(96099)
+    expect(result[0].transactionDate?.getFullYear()).toBe(2026)
+    expect(result[0].transactionDate?.getMonth()).toBe(4)
+    expect(result[0].transactionDate?.getDate()).toBe(31)
   });
 
   it('should filter transactions outside of the lookback period', async () => {
     vi.spyOn(fs, 'existsSync').mockReturnValue(true);
-    const mockCsvContent = `Post Date,Description,Amount,Card Last 4\n2020-01-01,Old Payee,10.00,1234`;
+    const mockCsvContent = `# opening_balance=1000.00\n# opening_balance_date=2019-12-31\nDate,Amount,Account Number,,Transaction Type,Transaction Details,Category,Merchant Name,Processed On\n2020-01-01,10.00,Card ending 1234,,MISCELLANEOUS DEBIT,Old Payee,Other,Old Payee,`;
     vi.spyOn(fs, 'readFileSync').mockReturnValue(mockCsvContent);
 
     vi.spyOn(utils, 'isWithinLookback').mockReturnValue(false);
@@ -69,6 +75,13 @@ describe('CreditCardAdapter', () => {
     expect(result).toHaveLength(0);
     
     vi.restoreAllMocks();
+  });
+
+  it('rejects files without valid opening balance metadata', async () => {
+    vi.spyOn(fs, 'existsSync').mockReturnValue(true);
+    vi.spyOn(fs, 'readFileSync').mockReturnValue('Date,Amount\n30 May 26,-1.00');
+
+    await expect(adapter.parse('fake-cc.csv')).rejects.toThrow('opening balance metadata is required');
   });
 
   it('should handle CSV parsing errors gracefully', async () => {
