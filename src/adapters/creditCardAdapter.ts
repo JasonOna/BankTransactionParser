@@ -1,7 +1,7 @@
 import fs from 'fs';
 import { parse } from 'csv-parse/sync';
-import { NormalizedTransaction, CreditCardCsvRow } from '../types';
-import { parseDate, parseAmount, generateImportId, sanitizePayee, sanitizeMemo, isWithinLookback } from '../utils/utils';
+import { NormalizedTransaction, CreditCardCsvRow, CreditCardMetadata } from '../types';
+import { parseDate, parseMinorUnits, generateImportId, sanitizePayee, sanitizeMemo, isWithinLookback } from '../utils/utils';
 import { getLogger } from '../utils/logger';
 
 /**
@@ -12,11 +12,9 @@ import { getLogger } from '../utils/logger';
 export class CreditCardAdapter {
   private logger = getLogger();
   private accountId: string;
-  private startingBalance: string;
 
-  constructor(accountId: string, startingBalance: string) {
+  constructor(accountId: string) {
     this.accountId = accountId;
-    this.startingBalance = startingBalance;
   }
 
   /**
@@ -30,7 +28,9 @@ export class CreditCardAdapter {
 
     try {
       const fileContent = fs.readFileSync(filePath, 'utf-8');
-      const rows: CreditCardCsvRow[] = parse(fileContent, {
+      const metadata = this.parseMetadata(fileContent);
+      const csvContent = fileContent.split(/\r?\n/).filter(line => !line.trim().startsWith('#')).join('\n');
+      const rows: CreditCardCsvRow[] = parse(csvContent, {
         columns: true,
         skip_empty_lines: true,
         trim: true,
@@ -38,16 +38,15 @@ export class CreditCardAdapter {
 
       // add running balances
       const transactions: NormalizedTransaction[] = [];
-      let runningBalance = this.stringToNumber(this.startingBalance) * 100;
-      for (const row of rows) {
-        const amount = this.stringToNumber(row.Amount)
-        runningBalance = Math.round(runningBalance + amount * 100)
-        row['Running Balance'] = runningBalance
-      }
+      let runningBalance = metadata.openingBalanceMinor;
 
-      for (const row of rows) {
+      for (const [index, row] of rows.entries()) {
         try {
-          const transaction = this.transformRow(row);
+          const balanceBefore = runningBalance;
+          const amountMinor = parseMinorUnits(row.Amount);
+          runningBalance += amountMinor;
+          row['Running Balance'] = runningBalance;
+          const transaction = this.transformRow(row, index + 2, balanceBefore, amountMinor);
 
           // Skip old transactions if lookback is specified
           if (!isWithinLookback(transaction.date, daysBack)) {
@@ -57,7 +56,7 @@ export class CreditCardAdapter {
           transactions.push(transaction);
         } catch (error) {
           this.logger.warn(
-            { row, error },
+            { rowNumber: index + 2, error: error instanceof Error ? error.message : 'invalid row' },
             'Failed to parse credit card transaction row'
           );
         }
@@ -78,20 +77,25 @@ export class CreditCardAdapter {
    * Transform a single credit card CSV row to normalized format
    * Customize column names to match your card's CSV headers
    */
-  private transformRow(row: CreditCardCsvRow): NormalizedTransaction {
+  private transformRow(row: CreditCardCsvRow, sourceRowNumber: number, balanceBefore: number, amountMinor: number): NormalizedTransaction {
     const date = parseDate(row.Date);
     const merchant = sanitizePayee(row['Merchant Name']);
-    const amount = this.stringToNumber(row.Amount)
     const details = row['Transaction Details'];
     const runningBalance = row['Running Balance'];
 
     const transaction: NormalizedTransaction = {
       date,
+      transactionDate: row['Processed On'] ? parseDate(row['Processed On']) : undefined,
       merchant,
       payee: merchant,
-      uniquenessKey: runningBalance.toString(),
-      amount,
+      amountMinor,
       accountId: this.accountId,
+      rawDescription: details,
+      transactionType: row['Transaction Type'],
+      sourceRowNumber,
+      balanceBefore,
+      balanceAfter: runningBalance,
+      balanceSource: 'derived',
       memo: sanitizeMemo(details),
       source: 'credit_card',
       importId: '', // Will be set below
@@ -101,7 +105,21 @@ export class CreditCardAdapter {
     return transaction;
   }
 
-  private stringToNumber(input: string): number {
-    return input[0] === '-' ? -parseAmount(input) : parseAmount(input);
+  private parseMetadata(fileContent: string): CreditCardMetadata {
+    const metadata = new Map<string, string>();
+    for (const line of fileContent.split(/\r?\n/)) {
+      const match = line.match(/^#\s*([^=]+)=(.*)$/);
+      if (match) metadata.set(match[1].trim(), match[2].trim());
+    }
+
+    const openingBalance = metadata.get('opening_balance');
+
+    if (!openingBalance) {
+      throw new Error('Credit-card opening balance metadata is required');
+    }
+
+    return {
+      openingBalanceMinor: parseMinorUnits(openingBalance),
+    };
   }
 }

@@ -21,6 +21,17 @@ export function parseDate(dateStr: string): Date {
     return date;
   }
 
+  const dayMonthYearMatch = trimmed.match(/^(\d{2})\s+([A-Za-z]{3})\s+(\d{2})$/);
+  if (dayMonthYearMatch) {
+    const month = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
+      .indexOf(dayMonthYearMatch[2].toLowerCase());
+    const date = new Date(2000 + Number(dayMonthYearMatch[3]), month, Number(dayMonthYearMatch[1]));
+    if (month < 0 || isNaN(date.getTime())) {
+      throw new Error('Invalid date format');
+    }
+    return date;
+  }
+
   // Fallback for formats JS normally natively supports (MM/DD/YYYY or YYYY-MM-DD)
   const date = new Date(trimmed);
   if (isNaN(date.getTime())) {
@@ -43,6 +54,18 @@ export function parseAmount(amountStr: string): number {
     throw new Error(`Invalid amount format: ${amountStr}`);
   }
   return Math.round(Math.abs(amount) * 100) / 100;// Always return positive
+}
+
+export function parseMinorUnits(amountStr: string): number {
+  const cleaned = amountStr.trim().replace(/[$,\s]/g, '');
+  const match = cleaned.match(/^([+-]?)(\d+)(?:\.(\d{1,2}))?$/);
+  if (!match) {
+    throw new Error('Invalid monetary amount');
+  }
+
+  const sign = match[1] === '-' ? -1 : 1;
+  const cents = (match[3] ?? '').padEnd(2, '0');
+  return sign * (Number(match[2]) * 100 + Number(cents));
 }
 
 /**
@@ -75,7 +98,17 @@ export function normalizeLookupText(text: string): string {
  * Hash of date + amount + payee ensures same transaction = same ID
  */
 export function generateImportId(transaction: Partial<NormalizedTransaction>): string {
-  const key = `${transaction.date}|${transaction.amount}|${transaction.merchant ?? transaction.payee}|${transaction.uniquenessKey}`;
+  const key = [
+    transaction.accountId ?? '',
+    transaction.source ?? '',
+    transaction.date?.toISOString().slice(0, 10) ?? '',
+    transaction.transactionDate?.toISOString().slice(0, 10) ?? '',
+    transaction.amountMinor ?? '',
+    normalizeLookupText(transaction.merchant ?? transaction.payee ?? ''),
+    transaction.transactionType ?? '',
+    transaction.balanceBefore ?? '',
+    transaction.balanceAfter ?? '',
+  ].join('|');
   return crypto.createHash('sha256').update(key).digest('hex').substring(0, 16);
 }
 

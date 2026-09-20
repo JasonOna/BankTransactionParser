@@ -8,13 +8,21 @@
  */
 export interface NormalizedTransaction {
   date: Date;
+  transactionDate?: Date;
   merchant: string;
   payee: string;
-  amount: number; // Always positive; sign indicates direction
+  amountMinor: number;
+  /** @deprecated Use amountMinor. Kept for compatibility with existing matchers. */
+  amount?: number;
   accountId: string;
   categoryId?: string;
   memo?: string;
-  uniquenessKey?: string; // To differentiate multiple similar txns
+  rawDescription: string;
+  transactionType?: string;
+  sourceRowNumber: number;
+  balanceBefore?: number;
+  balanceAfter?: number;
+  balanceSource?: 'source' | 'derived';
   source: 'bank' | 'credit_card'; // Origin source for debugging
   importId: string; // Deterministic hash for YNAB idempotency
 }
@@ -38,7 +46,13 @@ export interface CreditCardCsvRow {
   'Transaction Details': string;
   Amount: string;
   'Merchant Name': string;
+  'Transaction Type': string;
+  'Processed On'?: string;
   'Running Balance': number;
+}
+
+export interface CreditCardMetadata {
+  openingBalanceMinor: number;
 }
 
 /**
@@ -71,7 +85,6 @@ export interface Config {
   accountMappings: Record<string, string>; // account name -> YNAB account ID
   bankCsvPath: string;
   creditCardCsvPath: string;
-  creditCardStartingBalance: string;
   logLevel: string;
   daysBack?: number;
   liveRun?: boolean;
