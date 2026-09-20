@@ -27,7 +27,7 @@ export class SyncEngine {
   constructor(config: Config) {
     this.config = config;
     this.bankAdapter = new BankAdapter(config.accountMappings.savings);
-    this.creditCardAdapter = new CreditCardAdapter(config.accountMappings.credit_card, config.creditCardStartingBalance);
+    this.creditCardAdapter = new CreditCardAdapter(config.accountMappings.credit_card);
     this.ynabService = new YnabService(config.ynabApiKey, config.ynabBudgetId, this.config.liveRun);
     this.payeeAliasStore = new PayeeAliasStore();
   }

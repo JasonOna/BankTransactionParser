@@ -45,7 +45,7 @@ The credit-card CSV does not provide a provider transaction ID and must include 
 - Merchant Name
 - Processed On
 
-The importer must parse and validate the comment metadata before processing any transactions. It must reject the file if `opening_balance` or `opening_balance_date` is missing or invalid. The opening balance is used to derive a running balance for every row.
+The importer must parse and validate the comment metadata before processing any transactions. It must reject the file if `opening_balance` is missing or invalid. The opening balance is used to derive a running balance for every row.
 
 The `Date` column is required for both supported sources and maps to the
 normalized `posted_date`. The credit-card `Processed On` column is a separate
@@ -53,7 +53,6 @@ optional source date and maps to `transaction_date` when present.
 
 ```csv
 # opening_balance=1250.00
-# opening_balance_date=2026-08-09
 Date,Amount,Account Number,,Transaction Type,Transaction Details,Category,Merchant Name,Processed On
 09 Aug 26,-98.95,Card ending 2352,,MISCELLANEOUS DEBIT,VDAS FOODS PTY LTDVDAS Bayswater,Cafe & coffee,The Hatter & The Hare,
 ```
