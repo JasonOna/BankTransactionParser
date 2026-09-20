@@ -53,7 +53,6 @@ export interface CreditCardCsvRow {
 
 export interface CreditCardMetadata {
   openingBalanceMinor: number;
-  openingBalanceDate: Date;
 }
 
 /**
@@ -86,7 +85,6 @@ export interface Config {
   accountMappings: Record<string, string>; // account name -> YNAB account ID
   bankCsvPath: string;
   creditCardCsvPath: string;
-  creditCardStartingBalance: string;
   logLevel: string;
   daysBack?: number;
   liveRun?: boolean;

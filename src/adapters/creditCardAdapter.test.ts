@@ -34,7 +34,6 @@ describe('CreditCardAdapter', () => {
 
     const mockCsvContent = [
       '# opening_balance=1000.00',
-      '# opening_balance_date=2026-05-29',
       'Date,Amount,Account Number,,Transaction Type,Transaction Details,Category,Merchant Name,Processed On',
       '30 May 26,-39.01,Card ending 2352,,MISCELLANEOUS DEBIT,TARGET 5099 GLEN WAVERLEY,Other shopping,Target (The Glen),31 May 26'
     ].join('\n')
@@ -65,7 +64,7 @@ describe('CreditCardAdapter', () => {
 
   it('should filter transactions outside of the lookback period', async () => {
     vi.spyOn(fs, 'existsSync').mockReturnValue(true);
-    const mockCsvContent = `# opening_balance=1000.00\n# opening_balance_date=2019-12-31\nDate,Amount,Account Number,,Transaction Type,Transaction Details,Category,Merchant Name,Processed On\n2020-01-01,10.00,Card ending 1234,,MISCELLANEOUS DEBIT,Old Payee,Other,Old Payee,`;
+    const mockCsvContent = `# opening_balance=1000.00\nDate,Amount,Account Number,,Transaction Type,Transaction Details,Category,Merchant Name,Processed On\n2020-01-01,10.00,Card ending 1234,,MISCELLANEOUS DEBIT,Old Payee,Other,Old Payee,`;
     vi.spyOn(fs, 'readFileSync').mockReturnValue(mockCsvContent);
 
     vi.spyOn(utils, 'isWithinLookback').mockReturnValue(false);

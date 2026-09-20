@@ -13,7 +13,7 @@ export class CreditCardAdapter {
   private logger = getLogger();
   private accountId: string;
 
-  constructor(accountId: string, _startingBalance?: string) {
+  constructor(accountId: string) {
     this.accountId = accountId;
   }
 
@@ -113,14 +113,13 @@ export class CreditCardAdapter {
     }
 
     const openingBalance = metadata.get('opening_balance');
-    const openingBalanceDate = metadata.get('opening_balance_date');
-    if (!openingBalance || !openingBalanceDate) {
+
+    if (!openingBalance) {
       throw new Error('Credit-card opening balance metadata is required');
     }
 
     return {
       openingBalanceMinor: parseMinorUnits(openingBalance),
-      openingBalanceDate: parseDate(openingBalanceDate),
     };
   }
 }
